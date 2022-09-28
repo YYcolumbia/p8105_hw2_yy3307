@@ -1,0 +1,9 @@
+---
+title: "p8105_hw2_yy3307"
+output: github_document
+date: "2022-09-28"
+---
+
+```{r setup, include = FALSE}
+library(tidyverse)
+```
