@@ -4,6 +4,76 @@ output: github_document
 date: "2022-09-28"
 ---
 
-```{r setup, include = FALSE}
+```{r setup}
 library(tidyverse)
+library(readxl)
 ```
+
+# Problem 1
+
+Importing and cleaning data tables:
+This `NYC_Transit_Subway_Entrance_And_Exit_Data.csv` dataset contains information related to entrance and exit conditions for each subway stations in NYC. The dataset contains character variables, double class variables which holds double-precision floating point numbers, and logical variables. To clean-up the dataset, firstly I need to import the data. Then I used `janitor::clean_names` function to clean up variable names. The next step is to select variables and discard others using `select` function. I also changed the data type of route 8-11 into character for consistency with route 1-7. In order to convert one variable from character to logical variable, I mutate the character variables of "YES and NO" into logical conditions `TRUE and FALSE`.
+
+```{r import}
+transit_df = 
+  read_csv(
+    "data/NYC_Transit_Subway_Entrance_And_Exit_Data.csv",
+    col_types = cols(Route8 = "c", Route9 = "c", Route10 = "c", Route11 = "c")) %>%
+  janitor::clean_names() %>%
+  select(line, station_name, station_latitude, station_longitude, route1:route11, entry, exit_only, vending, entrance_type, ada) %>%
+  mutate(entry = recode(entry, `YES` = TRUE, `NO` = FALSE))
+```
+
+Currently the dimension of dateset is 1868*19, which has 1868 rows and 19 columns. But the dataset is not tidy yet, we can modify the route 1-11 columns from wide to long format to make them become variables in a single column.
+
+To find distinct stations from transit_df dataset, we can use `distinct` function to summarize all distinct variable combinations and then count number of rows in the new dataset. 
+
+```{r distinct}
+dist_station = nrow(distinct(transit_df, station_name, line))
+```
+
+_We can tell that there are `r dist_station` distinct stations._
+
+Then, we would like to know how many distinct stations are ADA compliant. It's similar with previous question but this time the data we want must satisfy the condition that `ada == TRUE`, so we can use `filter` function to select data  that satisfy the condition and find `distinct` combinations from these data. Lastly, we also need to use `nrow` to count for numbers of distinct combinations. 
+
+```{r ada}
+ada_compliant = nrow(distinct(filter(transit_df, ada == TRUE), station_name, line))
+```
+
+_We find that `r ada_compliant` stations are ADA compliant._
+
+In order to calculate the proportion of station entrances / exits without vending allow entrance, we need to use the number of stations `without vending allow entrance` divided by number of stations `without vending`. Also, I'll use filter function to create constraints. 
+
+```{r proportion}
+entrance_without_vending = nrow(filter(transit_df, vending == "NO", entry == TRUE))
+proportion = entrance_without_vending / nrow(filter(transit_df, vending == "NO"))
+```
+
+_In conclusion, `r round(proportion, digits = 2)` (rounded by 2 decimal places) of station entrances / exits without vending allow entrance._
+
+Lastly, I'm going to use `pivot_longer` function to transform route number and route name into distinct variables with long format. After modifying route name and value, I'll `filter` the `distinct` stations that satisfy `route == "A"` condition for distinct stations serve the A train and `filter` the `distinct` stations that satisfy `route == "A"` and `ada == TRUE` condition for ADA compliant stations that serve A train.
+
+```{r rounteA}
+pivot_longer(
+    transit_df,
+    route1:route11,
+    names_to = "route_num",
+    values_to = "route") %>%
+  filter(route == "A") %>%
+  distinct(station_name, line)
+```
+
+_There are **60** distinct stations serve the A train._
+
+```{r routeA_ada}
+pivot_longer(
+    transit_df,
+    route1:route11,
+    names_to = "route_num",
+    values_to = "route") %>%
+  filter(route == "A", ada == TRUE) %>%
+  distinct(station_name, line)
+```
+
+_Of the stations that serve the A train, **17** of them are ADA compliant._
+
