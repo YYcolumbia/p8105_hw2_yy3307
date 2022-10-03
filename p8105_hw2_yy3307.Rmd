@@ -2,9 +2,11 @@
 title: "p8105_hw2_yy3307"
 output: github_document
 date: "2022-09-28"
+author: "Yang Yi"
+UNI: "yy3307"
 ---
 
-```{r setup}
+```{r setup, message = FALSE}
 library(tidyverse)
 library(readxl)
 ```
@@ -91,8 +93,7 @@ trash_df =
   select(data_source, everything()) %>%
   janitor::clean_names() %>%
   drop_na(dumpster) %>%
-  mutate(sports_balls = as.integer(round(sports_balls, digits = 0))
-  )
+  mutate(sports_balls = as.integer(round(sports_balls, digits = 0)))
 
 pro_trash_df =
   read_excel(
@@ -103,16 +104,105 @@ pro_trash_df =
   select(data_source, everything()) %>%
   janitor::clean_names() %>%
   drop_na(dumpster) %>%
-  mutate(sports_balls = as.integer(round(sports_balls, digits = 0))
-  )
+  mutate(sports_balls = as.integer(round(sports_balls, digits = 0)))
 ```
 
 After cleaning both datasets, I'm going to combine these two datasets to produce a single tidy dataset. In order to keep all important information from both datasets, I'll use `full_join` for combination. 
 
-```{r combine_trashes}
+```{r combine_trashes, message = FALSE}
 combine_trash_df = full_join(trash_df, pro_trash_df)
 ```
 
-After combination, we get a 524*15 tidy dataset, including `data_source, dumpster, month, year, date, weight_tons, volume_cubic_yards, plastic_bottles, polystyrene, cigarette_butts, glass_bottles, grocery_bags, chip_bags, sports_balls, homes_powered`. Specifically, we observed 453 groups of data for Mr. Trash Wheel from May 2014 to January 2021, and 71 observations for Professor Trash Wheel from January 2017 to January 2021. Using this dataset, we can easily find total numbers of any trash collections that we're interested in. For instance, the total number of glass bottles collected by Professor Trash Wheel is `r colSums(combine_trash_df[454:524, c("glass_bottles")])`. Or we can find the mean value of specific sampled data, such as the mean value of polystyrene collection for Mr. Trash Wheel in May is `r colMeans(combine_trash_df[1:8, c("polystyrene")])`.
+```{r, echo = FALSE}
+row_combine = nrow(combine_trash_df)
+col_combine = ncol(combine_trash_df)
 
-The total weight of trash collected by Professor Trash Wheel is `r colSums(combine_trash_df[454:524, c("weight_tons")])` tons. And the total number of sports balls collected by Mr. Trash Wheel in 2020 is `r colSums(combine_trash_df[381:452, c("sports_balls")])`.
+professor_glass = colSums(combine_trash_df[454:524, c("glass_bottles")])
+trash_may_poly = colMeans(combine_trash_df[1:8, c("polystyrene")])
+
+total_professor = colSums(combine_trash_df[454:524, c("weight_tons")])
+sports_trash = colSums(combine_trash_df[381:452, c("sports_balls")])
+```
+
+_After combination, we get a `r row_combine` * `r col_combine` tidy dataset, including `data_source, dumpster, month, year, date, weight_tons, volume_cubic_yards, plastic_bottles, polystyrene, cigarette_butts, glass_bottles, grocery_bags, chip_bags, sports_balls, homes_powered`. Specifically, we observed 453 groups of data for Mr. Trash Wheel from May 2014 to January 2021, and 71 observations for Professor Trash Wheel from January 2017 to January 2021. Using this dataset, we can easily find total numbers of any trash collections that we're interested in. For instance, the total number of glass bottles collected by Professor Trash Wheel is `r professor_glass`. Or we can find the mean value of specific sampled data, such as the mean value of polystyrene collection for Mr. Trash Wheel in May is `r trash_may_poly`._
+
+_The total weight of trash collected by Professor Trash Wheel is `r total_professor` tons. And the total number of sports balls collected by Mr. Trash Wheel in 2020 is `r sports_trash`._
+
+# Problem 3
+
+Firstly we need to read and import the `fivethirtyeight_datasets/pols-month.csv` file and clean it. I'll separate the "mon" variable into "year", "month", "day" variables using "-" as separation notations. Then we can use `recode` function to replace month number with month name. To create president variable taking gop and dem, I would set the president become a copy of either `prez_dem` or `prez_gop` columns. This way the president variable will contain numbers of 0 and 1, so that I can determine whether the president is gop or dem (1 = yes, 0 = no) using `recode`. Lastly, we can use select to keep the variables we want in order and eliminate others. I also transfer the data type of `year` variable in `pols` dataset from "character" to "double" to keep the consistence between datasets.
+
+```{r pol, message = FALSE}
+pols_df =
+  read_csv(file = "./data/fivethirtyeight_datasets/pols-month.csv") %>%
+  janitor::clean_names() %>%
+  separate(mon, into = c("year", "month", "day"), sep = "-") %>%
+  mutate(
+    month = recode(month, `01` = "January", `02` = "February", `03` = "March", `04` = "April", `05` = "May", `06` = "June", `07` = "July", `08` = "August", `09` = "September", `10` = "October", `11` = "November", `12` = "December",)) %>%
+  mutate(
+    president = prez_gop,
+    president = recode(president, `0` = "dem", `1` = "gop")) %>%
+  mutate(year = as.double(year)) %>%
+  select(year, month, gov_gop:rep_gop, gov_dem:president)
+```
+
+After importing and cleaning `snp.csv` dataset, I found that the `year` variable automatically keeps the last two digits and discard the first two. For consistency across datasets, I considered the year variable as numeric and use an `ifelse` condition to present the `year` variable back to 4 digits (if two digits year is greater than or euqal to 50, then it's in 20th century; other conditions will be considered as 21st century). Then we need to `recode` month variable from numbers to names and re-arrange dataset as we want.
+
+```{r snp, message = FALSE}
+snp_df =
+  read_csv(file = "./data/fivethirtyeight_datasets/snp.csv") %>%
+  janitor::clean_names() %>%
+  separate(date, into = c("month", "day", "year"), sep = "/") %>%
+  mutate(
+    year = as.integer(year),
+    year = ifelse(year >= 50, year + 1900, year + 2000)) %>%
+  select(year, month, close) %>%
+  arrange(year, as.integer(month)) %>%
+  mutate(
+    month = recode(month, `1` = "January", `2` = "February", `3` = "March", `4` = "April", `5` = "May", `6` = "June", `7` = "July", `8` = "August", `9` = "September", `10` = "October", `11` = "November", `12` = "December",)
+  )
+```
+
+The `unemployment.csv` dataset is in wide format with `month` as column names, so we need to use `pivot_longer` to transfer it into long format. We also need to `recode` month variable from numbers to names. Since the data has already been arranged, we don't need to re-arrange this time.
+
+```{r unemployment, message = FALSE}
+unemploy_df =
+  read_csv(file = "./data/fivethirtyeight_datasets/unemployment.csv") %>%
+  janitor::clean_names() %>%
+  pivot_longer(
+    jan:dec,
+    names_to = "month", 
+    values_to = "unemployment%") %>%
+  mutate(
+    month = recode(month, "jan" = "January", "feb" = "February", "mar" = "March", "apr" = "April", "may" = "May", "jun" = "June", "jul" = "July", "aug" = "August", "sep" = "September", "oct" = "October", "nov" = "November", "dec" = "December",)
+  )
+```
+
+Lastly we'll `join` three datasets into one complete result by year and month. To keep all data information, I'm going to use `full_join` function.
+
+```{r join, message = FALSE}
+full_data = full_join(pols_df, snp_df)
+full_data = full_join(full_data, unemploy_df)
+```
+
+```{r, echo = FALSE}
+row_pols = nrow(pols_df)
+col_pols = ncol(pols_df)
+
+row_snp = nrow(snp_df)
+col_snp = ncol(snp_df)
+
+row_unemploy = nrow(unemploy_df)
+col_unemploy = ncol(unemploy_df)
+
+row_full = nrow(full_data)
+col_full = ncol(full_data)
+```
+
+_The "pols-month" dataset contains 822 observations of 9 variables related to the number of national politicians who are democratic or republican at any given time. After modification, the dataset contains `year, month, gov_gop, sen_gop, rep_gop, gov_dem, sen_dem, rep_dem, president` as variables. "gov/sen/rep_gop/dem" indicates the number of republican/democratic  governors/senators/representatives on the associated date, and "prez_gop/dem" is an indicator of whether the president was republican/democratic on the associated date. The result dataset has a dimension of `r row_pols` * `r col_pols`, with the range of years from 1947 to 2015._
+
+_The "snp" dataset contains 787 observations of 2 variables related to S&P stock market index. After modification, the dataset contains `year, month, close` as variables. The result dataset has a dimension of `r row_snp` * `r col_snp`, with the range of years from 1950 to 2015._
+
+_The "unemployment" dataset contains  68 observations of 13 variables rekated to percentage of unemployment in each month of the associated year. After modification, the dataset contains `year, month, unemployment%` as variables. The result dataset has a dimension of `r row_unemploy` * `r col_unemploy`, with the range of years from 1948 to 2015._
+
+_After combination, we merged all important data into one single "full_data" dataset, which has a dimension of `r row_full` * `r col_full`. All of the key variables from three datasets are collected in this file, so we have `year, month, gov_gop, sen_gop, rep_gop, gov_dem, sen_dem, rep_dem, president, close, unemployment%` as variables. And the range of years is from 1947 to 2015._
