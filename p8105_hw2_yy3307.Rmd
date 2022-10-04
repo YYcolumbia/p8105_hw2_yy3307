@@ -81,30 +81,30 @@ _Of the stations that serve the A train, **17** of them are ADA compliant._
 
 # Problem 2
 
-To tidy `Mr. Trash Wheel` and `Professor Trash Wheel` datasets, firstly we need to import and clean the `data/Trash-Wheel-Collection-Totals-7-2020-2.xlsx` dataset, the table is in excel format so we need to call `readxl` from library. To eliminate rows with figure and notes, we can directly select desired data range from excel sheet. After cleaning column variable names, we'll use `drop_na` to omit rows that no not include `dumpster` data. Then, we need to `mutate` the `sports_ball` variable into integers and `round` them to the nearest integer. Lastly, I added a data column of `data_source` to keep track the source of data.
+To tidy `Mr. Trash Wheel` and `Professor Trash Wheel` datasets, firstly we need to import and clean the `data/Trash Wheel Collection Data.xlsx` dataset, the table is in excel format so we need to call `readxl` from library. To eliminate rows with figure and notes, we can directly select desired data variables from excel sheet. After cleaning column variable names, we'll use `drop_na` to omit rows that no not include `dumpster` data. Then, we need to `mutate` the `sports_ball` variable into integers and `round` them to the nearest integer. Lastly, I added a data column of `data_source` to keep track the source of data.
 
-```{r trash}
+```{r trash, message = FALSE}
 trash_df =
   read_excel(
-    "data/Trash-Wheel-Collection-Totals-7-2020-2.xlsx",
-    sheet = "Mr. Trash Wheel",
-    range = "A2:N534") %>%
+    "data/Trash Wheel Collection Data.xlsx",
+    sheet = "Mr. Trash Wheel") %>%
+  janitor::clean_names() %>%
+  select(dumpster:homes_powered) %>%
   mutate(data_source = "Mr. Trash Wheel") %>%
   select(data_source, everything()) %>%
-  janitor::clean_names() %>%
   drop_na(dumpster) %>%
   mutate(sports_balls = as.integer(round(sports_balls, digits = 0)))
 
 pro_trash_df =
   read_excel(
-    "data/Trash-Wheel-Collection-Totals-7-2020-2.xlsx",
-    sheet = "Professor Trash Wheel",
-    range = "A2:N117") %>%
+    "data/Trash Wheel Collection Data.xlsx",
+    sheet = "Professor Trash Wheel") %>%
+  janitor::clean_names() %>%
+  select(dumpster:homes_powered) %>%
   mutate(data_source = "Professor Trash Wheel") %>%
   select(data_source, everything()) %>%
-  janitor::clean_names() %>%
-  drop_na(dumpster) %>%
-  mutate(sports_balls = as.integer(round(sports_balls, digits = 0)))
+  mutate(year = as.character(year)) %>%
+  drop_na(dumpster)
 ```
 
 After cleaning both datasets, I'm going to combine these two datasets to produce a single tidy dataset. In order to keep all important information from both datasets, I'll use `full_join` for combination. 
@@ -117,10 +117,10 @@ combine_trash_df = full_join(trash_df, pro_trash_df)
 row_combine = nrow(combine_trash_df)
 col_combine = ncol(combine_trash_df)
 
-professor_glass = colSums(combine_trash_df[454:524, c("glass_bottles")])
+professor_glass = colSums(combine_trash_df[548:641, c("glass_bottles")])
 trash_may_poly = colMeans(combine_trash_df[1:8, c("polystyrene")])
 
-total_professor = colSums(combine_trash_df[454:524, c("weight_tons")])
+total_professor = colSums(combine_trash_df[548:641, c("weight_tons")])
 sports_trash = colSums(combine_trash_df[381:452, c("sports_balls")])
 ```
 
@@ -132,7 +132,7 @@ _The total weight of trash collected by Professor Trash Wheel is `r total_profes
 
 Firstly we need to read and import the `fivethirtyeight_datasets/pols-month.csv` file and clean it. I'll separate the "mon" variable into "year", "month", "day" variables using "-" as separation notations. Then we can use `recode` function to replace month number with month name. To create president variable taking gop and dem, I would set the president become a copy of either `prez_dem` or `prez_gop` columns. This way the president variable will contain numbers of 0 and 1, so that I can determine whether the president is gop or dem (1 = yes, 0 = no) using `recode`. Lastly, we can use select to keep the variables we want in order and eliminate others. I also transfer the data type of `year` variable in `pols` dataset from "character" to "double" to keep the consistence between datasets.
 
-```{r pol, message = FALSE}
+```{r pol, message = FALSE, warning = FALSE}
 pols_df =
   read_csv(file = "./data/fivethirtyeight_datasets/pols-month.csv") %>%
   janitor::clean_names() %>%
